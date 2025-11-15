@@ -1,0 +1,5 @@
+Flask
+gunicorn
+azure-identity
+azure-mgmt-costmanagement
+python-dotenv

@@ -1,0 +1,51 @@
+# GitHub Actions CI/CD Pipeline for Dockerized Azure App Service Deployment
+name: Deploy Azure Cost Monitor
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual trigger
+
+# Define necessary secrets in GitHub: AZURE_CR_USERNAME, AZURE_CR_PASSWORD
+# These credentials will be used by the pipeline
+env:
+  AZURE_WEBAPP_NAME: costmonitor # <-- UPDATE THIS WITH YOUR APP SERVICE NAME
+  AZURE_CR_LOGIN_SERVER: costregistery.azurecr.io # <-- UPDATE THIS WITH YOUR ACR LOGIN SERVER
+  AZURE_CR_USERNAME: ${{ secrets.AZURE_CR_USERNAME }} # <-- CORRECTED! NO 'io' HERE
+  AZURE_CR_PASSWORD: ${{ secrets.AZURE_CR_PASSWORD }}
+  IMAGE_NAME: cost-monitor-app
+  DOCKER_PATH: . # The Dockerfile is in the root directory here
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Azure Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.AZURE_CR_LOGIN_SERVER }}
+        username: ${{ env.AZURE_CR_USERNAME }}
+        password: ${{ env.AZURE_CR_PASSWORD }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ env.AZURE_CR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        file: Dockerfile
+        
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        slot-name: 'production'
+        images: ${{ env.AZURE_CR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        # Set the image to deploy from ACR to the App Service
