@@ -12,7 +12,7 @@ on:
 env:
   AZURE_WEBAPP_NAME: costmonitor # <-- UPDATE THIS WITH YOUR APP SERVICE NAME
   AZURE_CR_LOGIN_SERVER: costregistery.azurecr.io # <-- UPDATE THIS WITH YOUR ACR LOGIN SERVER
-  AZURE_CR_USERNAME: ${{ secrets.AZURE_CR_USERNAME }} # <-- CORRECTED! NO 'io' HERE
+  AZURE_CR_USERNAME: ${{ secrets.AZURE_CR_USERNAME }}
   AZURE_CR_PASSWORD: ${{ secrets.AZURE_CR_PASSWORD }}
   IMAGE_NAME: cost-monitor-app
   DOCKER_PATH: . # The Dockerfile is in the root directory here
@@ -42,10 +42,19 @@ jobs:
         tags: ${{ env.AZURE_CR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
         file: Dockerfile
         
+    # --- CRITICAL FIX: AZURE LOGIN STEP ---
+    - name: Azure Login for Deployment
+      uses: azure/login@v1
+      with:
+        # Uses the AZURE_CREDENTIALS secret (the JSON block) you created
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+        enable-AzPSSession: true 
+    # --- END CRITICAL FIX ---
+        
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v3
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         slot-name: 'production'
         images: ${{ env.AZURE_CR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-        # Set the image to deploy from ACR to the App Service
+        # The deployment action now has credentials from the 'Azure Login' step!
